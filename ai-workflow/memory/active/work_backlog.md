@@ -18,4 +18,18 @@
 - [2026-06-24](./backlog/2026-06-24.md)
 
 ## 3. 전체 작업 상태 요약
-- [ ] TASK-001: 초기 도입 및 환경 설정
+
+### In Progress
+
+- [ ] **TASK-001: 라우터 아키텍처 및 scope 정의** — 분석 단계 완료 (reference 3종 비교 + cherry-pick 매트릭스 + MVP scope), lock-in 대기 (Q1, Q2)
+  - 분석 결과: `docs/concepts/token-saver-concept.md` §3, §4
+  - 결정 대기: Q1 Python-only vs Rust 분리, Q2 CCR-lite storage 백엔드
+
+### Done
+
+- [x] **TASK-000: workflow bootstrap** — Standard AI Workflow v0.9.5-beta 도입 (minimax-code harness), commit `bad7985`
+  - 결과: ai-workflow/, .MiniMax/, MiniMax.md, MiniMax_config.example.json, docs/PROJECT_PROFILE.md
+
+### Blocked
+
+- 🔒 **TASK-001 lock-in** — Q1/Q2 사용자 결정 대기
