@@ -23,6 +23,7 @@
 | Storage | Redis (hot) + Mongo (cold) | multi-user 가정, TTL 적합 data는 Redis, 영구+queryable data는 Mongo |
 | Multi-user | 처음부터 가정 | 모든 data path에 user_id 필터, RBAC + rate limit + tenant isolation |
 | Auth | Bearer token + admin/user RBAC | tokenrouter의 3단 hierarchy보다 단순, solo/multi-user 모두 적합 |
+| Local LLM | 별도 서버 가동 + URL/port/API key 연결 + Models API 동적 discovery | token-saver는 connection 정보만 보관, GPU 서버는 사용자 관리. 등록 시 `GET /v1/models` 조회 후 default_model 선택 (정적 config 아님) |
 
 ### 1.3 Non-goals (재확인)
 
@@ -76,9 +77,18 @@
        │                          │                               │
        │                          ▼                               │
        │              ┌──────────────────────────────────────┐    │
+       │              │  Provider Registry (registration)    │    │
+       │              │   - test connection (HEAD /v1/models) │    │
+       │              │   - list_models (GET /v1/models)     │    │
+       │              │   - cache models (TTL 1h)            │    │
+       │              └──────────────────────────────────────┘    │
+       │                          │                               │
+       │                          ▼                               │
+       │              ┌──────────────────────────────────────┐    │
        │              │  Provider Router                     │    │
        │              │   provider/model prefix → client     │    │
-       │              │   OpenAI / Anthropic / Ollama        │    │
+       │              │   OpenAI / Anthropic / Ollama / vLLM │    │
+       │              │   (extensible via Protocol)          │    │
        │              └──────────────────────────────────────┘    │
        │                          │                               │
        │                          ▼                               │
@@ -107,9 +117,9 @@
 | `ratelimit/` | Redis sliding window | 150 |
 | `detector/` | Content type classifier (text/json/code/log) | 300 |
 | `compressor/` | Pluggable compressor registry + 1-2 impls | 400 |
-| `provider/` | Provider client interface + OpenAI/Anthropic impls | 500 |
+| `provider/` | Provider client interface + OpenAI/Anthropic/Ollama/vLLM impls + Provider Registry (test/list_models/cache) | 650 |
 | `ccr/` | CCR-lite (Redis read-through + Mongo store) | 350 |
-| `cli/` | `token-saver serve` / `config` / `ccr` commands | 200 |
+| `cli/` | `token-saver serve` / `provider add` / `provider list` / `provider refresh` | 250 |
 | `tests/` | Fixture-based regression | 300 |
 | 합계 | | ~2,800 |
 
@@ -133,6 +143,20 @@ token-router (777 LOC 단일 파일) 와 headroom (32k+ LOC) 사이의 적정선
    └─ model, messages 필수 필드 확인
    └─ provider/model prefix 파싱 → provider 결정
    └─ default_provider fallback (model prefix 없을 때)
+   └─ providers collection lookup (user_id 격리)
+   └─ enabled flag check → false 면 503 Service Unavailable
+   └─ models_cache 존재 확인 → 없거나 TTL 만료면 ②.5 단계로 점프
+
+②.5. Provider models refresh (registration-time 또는 TTL 만료 시)
+    └─ Redis GET provider_models:{provider_id} (TTL 1h)
+    └─ hit + 유효 → 반환
+    └─ miss → Mongo providers.models_cache.last_refreshed_at check
+    └─ expired 또는 없음 → provider.list_models() 호출
+       └─ OpenAI-compat GET {base_url}/v1/models
+       └─ 응답: { "object": "list", "data": [{"id": "...", ...}, ...] }
+    └─ Mongo providers.models_cache 갱신 + last_refreshed_at = now
+    └─ Redis SETEX provider_models:{provider_id} 3600 {model_list}
+    └─ default_model 존재 여부 확인 → 없으면 에러
 
 4. Content type detection
    └─ messages 전체 content 를 보고 mode 결정
@@ -194,7 +218,8 @@ SSE 응답의 경우:
 | `kv_cache:{provider}:{prefix_hash}` | string | 5min | Provider cache_control hint |
 | `ccr:{content_hash}` | hash | 5min | CCR-lite read-through cache |
 | `semantic:{query_hash}` | hash | 5min | Semantic cache recent responses |
-| `provider_health:{provider}` | string | 30s | Provider circuit breaker state |
+| `provider_health:{provider_id}` | string | 30s | Provider circuit breaker state |
+| `provider_models:{provider_id}` | hash | 1h | Discovered model list cache |
 
 ### 4.2 Mongo (cold path, 영구+queryable)
 
@@ -220,14 +245,53 @@ SSE 응답의 경우:
   "_id": "provider_{ulid}",
   "user_id": "user_{ulid}",
   "name": "openai-main",
-  "type": "openai|anthropic|ollama",
+  "type": "openai|anthropic|ollama|vllm|...",
+  "base_url_encrypted": "AES-GCM(encrypted-by-master-key)",
   "api_key_encrypted": "AES-GCM(encrypted-by-master-key)",
-  "config": { "base_url": "...", "default_model": "..." },
+  "default_model": "gpt-4",
   "enabled": true,
+  "models_cache": {
+    "models": [
+      { "id": "gpt-4", "owned_by": "openai", "context_window": 8192 },
+      { "id": "gpt-4o-mini", "owned_by": "openai", "context_window": 128000 }
+    ],
+    "last_refreshed_at": ISODate,
+    "fetched_via": "GET /v1/models"
+  },
   "created_at": ISODate,
   "updated_at": ISODate
 }
 ```
+
+**Provider registration flow** (Multi-LLM support, Ollama/vLLM 별도 서버 가동):
+
+```
+1. POST /v1/providers/test { type, base_url, api_key }
+   └─ provider registry 의 BaseProvider.test_connection()
+   └─ HEAD {base_url}/v1/models 또는 GET {base_url}/v1/models (OpenAI-compat)
+   └─ 응답: { ok: true, latency_ms, models_count, models: [...] }
+   └─ 응답: { ok: false, error: "connection refused|timeout|invalid key" }
+
+2. POST /v1/providers { name, type, base_url, api_key, default_model? }
+   └─ test_connection 재검증 (race condition 방지)
+   └─ list_models() → default_model 선택 (없으면 자동 선택 = 첫 번째)
+   └─ Mongo insert: providers collection
+   └─ Redis SETEX provider_models:{provider_id} 3600 {model_list}
+
+3. POST /v1/providers/{provider_id}/models/refresh (manual trigger)
+   └─ list_models() 재호출
+   └─ Mongo providers.models_cache 갱신
+   └─ Redis cache 갱신
+
+4. (P1) Background job: provider_models TTL 만료 시 자동 refresh
+```
+
+**Local LLM (Ollama / vLLM)** default 가정:
+- token-saver 와 **다른 머신**에서 구동
+- `base_url` 예: `http://gpu-server.lan:11434` (Ollama), `http://gpu-server.lan:8000` (vLLM)
+- 둘 다 OpenAI-compat `/v1/models` 노출 → 동일한 `BaseProvider.list_models()` 재사용
+- API key 옵션 (remote GPU server 시 TLS + key 권장)
+- TLS 옵션 (`base_url` 의 `https://` prefix로 자동 인식)
 
 **ccr_store**
 ```json
@@ -296,10 +360,11 @@ Indexes:
 
 ### 4.4 Encryption
 
-- **API key (provider)**: master key (env var `TOKEN_SAVER_MASTER_KEY`) + AES-GCM. master key 분실 시 복구 불가.
+- **API key + base_url (provider)**: master key (env var `TOKEN_SAVER_MASTER_KEY`) + AES-GCM. master key 분실 시 복구 불가. **둘 다 암호화** — base_url 도 PII 가능 (GPU server 위치 노출 방지).
 - **Bearer token**: argon2id-hash (저장). token 자체는 stateless.
 - **Mongo connection**: TLS 권장 (production). docker-compose 는 local network 가정.
 - **Redis connection**: TLS 권장 (production). docker-compose 는 local network 가정.
+- **Provider TLS**: `base_url` 이 `https://` 면 자동 TLS. self-signed CA 는 `TOKEN_SAVER_CUSTOM_CA_BUNDLE` env var 로 주입.
 
 ## 5. Auth + RBAC
 
@@ -329,7 +394,11 @@ Client → GET /v1/...
 | `GET /v1/models` | ✓ | ✓ |
 | `POST /v1/ccr/retrieve` | ✓ | ✓ |
 | `GET /v1/conversations` | own only | all |
+| `POST /v1/providers/test` | ✓ | ✓ |
 | `POST /v1/providers` | ✓ | ✓ |
+| `GET /v1/providers` | own only | all |
+| `POST /v1/providers/{id}/models/refresh` | own only | all |
+| `DELETE /v1/providers/{id}` | own only | all |
 | `GET /v1/users` | ✗ | ✓ |
 | `GET /admin/health` | ✗ | ✓ |
 | `GET /admin/audit` | ✗ | ✓ |
@@ -359,10 +428,40 @@ services:
       REDIS_URL: redis://redis:6379
       MONGO_URL: mongodb://token_saver:${MONGO_PASSWORD}@mongo:27017
       TOKEN_SAVER_MASTER_KEY: ${MASTER_KEY}
+      # Provider connections are stored in Mongo, NOT env vars.
+      # Default admin user seed (one-time):
+      TOKEN_SAVER_ADMIN_EMAIL: ${ADMIN_EMAIL}
+      TOKEN_SAVER_ADMIN_PASSWORD: ${ADMIN_PASSWORD}
     depends_on: [redis, mongo]
 volumes:
   redis-data:
   mongo-data:
+```
+
+**Local LLM은 별도 서버에서 가동 가정** (token-saver와 다른 머신). GPU 서버에서 다음 중 하나 실행 후, token-saver admin 이 provider 등록 시 URL 만 입력:
+
+```bash
+# Ollama (CPU/GPU 자동)
+docker run -d --gpus=all -p 11434:11434 -v ollama-data:/root/.ollama ollama/ollama
+docker exec -it <container> ollama pull llama3.1:8b
+
+# vLLM (GPU 전용, OpenAI-compat 기본 노출)
+docker run -d --gpus=all -p 8000:8000 \
+  -e MODEL=Qwen/Qwen2.5-7B-Instruct \
+  vllm/vllm-openai:latest
+```
+
+Provider 등록 (admin CLI):
+```bash
+token-saver provider test --type ollama --base-url http://gpu-server.lan:11434
+# → connection OK + models discovered: [llama3.1:8b, llama3.2:3b, ...]
+
+token-saver provider add \
+  --type ollama \
+  --name "ollama-gpu-server" \
+  --base-url http://gpu-server.lan:11434 \
+  --default-model llama3.1:8b
+# → Mongo 저장, Redis cache warm, /v1/models 조회 가능
 ```
 
 ### 6.2 Production (P1)
@@ -384,6 +483,8 @@ volumes:
 | 3-mode taxonomy | §4.1 | token-router `scripts/router.py` (Ollama 의존 제거) |
 | Fixture regression | §4.1 | token-router `tests/router-tests.json` |
 | KV cache alignment | §3 step 7 | headroom `headroom/cache/{anthropic,openai}.py` |
+| **Provider Registry + Models API discovery** | §1.2 결정 | **tokenrouter `pkg/wizard/wizard.go` + `pkg/provider/client_ollama.go` + `provider_health.go`** (provider connection test + refresh models 패턴 차용) |
+| Multi-LLM via 별도 서버 + Models API | §1.2 결정 | Ollama `/v1/models` (OpenAI-compat), vLLM `/v1/models` (OpenAI-compat 표준) |
 
 ## 다음에 읽을 문서
 

@@ -32,13 +32,13 @@
 
 ## Next Actions
 
-- [ ] TASK-002-1: project skeleton — `pyproject.toml`, `src/token_saver/{proxy,auth,...}/`, `tests/fixtures/`, `docker-compose.yml`
+- [ ] TASK-002-1: project skeleton — `pyproject.toml`, `src/token_saver/{proxy,auth,provider,ccr,...}/`, `tests/fixtures/`, `docker-compose.yml`
 - [ ] TASK-002-2: FastAPI app + OpenAI-compatible `/v1/chat/completions` endpoint (mock response)
 - [ ] TASK-002-3: Bearer token auth + Redis session lookup
 - [ ] TASK-002-4: Mongo connection + users collection + admin seed script
-- [ ] TASK-002-5: Provider router + OpenAI client (real forwarding, e2e fixture)
+- [ ] TASK-002-5: Provider router + Provider Registry (test_connection + list_models + cache) + OpenAI client (real forwarding, e2e fixture)
 - [ ] TASK-002-6: Fixture-based regression test (1 case: OpenAI pass-through with mock provider)
-- [ ] TASK-002-7: CLI `token-saver serve` + `token-saver config show`
+- [ ] TASK-002-7: CLI `token-saver serve` + `provider test` + `provider add` + `provider list` + `provider refresh` + `provider delete`
 - [ ] TASK-002 done → first release v0.1.0
 
 ## Risks & Blockers

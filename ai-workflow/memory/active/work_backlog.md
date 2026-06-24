@@ -25,11 +25,15 @@
 
 ### Planned
 
-- [ ] **TASK-002: MVP 1차 cycle — HTTP proxy skeleton + auth + provider router + fixture regression**
+- [ ] **TASK-002: MVP 1차 cycle — HTTP proxy skeleton + auth + provider router + Provider Registry + fixture regression**
   - spec: `docs/architecture.md` §2-§6
-  - LOC 예산: ~2,800 (proxy 400 + auth 200 + ratelimit 150 + detector 300 + compressor 400 + provider 500 + ccr 350 + cli 200 + tests 300)
+  - LOC 예산: ~3,000 (proxy 400 + auth 200 + ratelimit 150 + detector 300 + compressor 400 + provider 650 + ccr 350 + cli 250 + tests 300)
   - sub-task breakdown (TASK-002-1 ~ TASK-002-7): session_handoff.md §Next Actions 참조
   - 권장 페이스: 1 session = 1 sub-task (~150-400 LOC, 1 chapter 패턴)
+  - **Provider Registry sub-component** (TASK-002-5 안에서):
+    - BaseProvider Protocol + test_connection() + list_models()
+    - OpenAI / Anthropic / Ollama / vLLM impl 모두 동일한 Protocol 구현
+    - Redis cache (TTL 1h) + Mongo models_cache 영구 저장
 
 ### Done
 
