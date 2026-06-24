@@ -1,0 +1,54 @@
+{
+  "schema_version": "1",
+  "generated_at": "2026-06-24",
+  "purpose_digest": null,
+  "purpose_digest_rev": null,
+  "source_of_truth": {
+    "project_profile_path": "docs/PROJECT_PROFILE.md",
+    "session_handoff_path": "ai-workflow/memory/active/session_handoff.md",
+    "work_backlog_index_path": "ai-workflow/memory/active/work_backlog.md",
+    "latest_backlog_path": "ai-workflow/memory/active/backlog/2026-06-24.md",
+    "repository_assessment_path": null
+  },
+  "project": {
+    "project_name": "Token Saver Router",
+    "document_home": "README.md",
+    "operations_path": null,
+    "backlog_path": "ai-workflow/memory/active/backlog/",
+    "handoff_path": null,
+    "environment_path": "<ai-workflow/memory/active/repository_assessment.md>"
+  },
+  "commands": {
+    "quick_tests": "TODO: 빠른 테스트 명령 입력",
+    "isolated_tests": "TODO: 격리 테스트 명령 입력",
+    "runtime_checks": null
+  },
+  "session": {
+    "current_baseline": "TODO: Summarize the current session focus.",
+    "current_axis": "TODO: Summarize the current session focus.",
+    "current_focus": "TASK-001 라우터 아키텍처 및 scope 정의",
+    "in_progress_items": [
+      "TASK-001 라우터 아키텍처 및 scope 정의"
+    ],
+    "blocked_items": [],
+    "recent_done_items": [],
+    "environment_constraints": []
+  },
+  "backlog": {
+    "latest_backlog_path": "ai-workflow/memory/active/backlog/2026-06-24.md",
+    "task_count": 0,
+    "in_progress_items": [],
+    "blocked_items": [],
+    "done_items": []
+  },
+  "next_documents": [
+    "docs/PROJECT_PROFILE.md",
+    "ai-workflow/memory/active/session_handoff.md",
+    "ai-workflow/memory/active/work_backlog.md",
+    "ai-workflow/memory/active/backlog/2026-06-24.md"
+  ],
+  "repository_assessment": {
+    "path": null,
+    "present": false
+  }
+}
