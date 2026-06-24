@@ -21,15 +21,27 @@
 
 ### In Progress
 
-- [ ] **TASK-001: 라우터 아키텍처 및 scope 정의** — 분석 단계 완료 (reference 3종 비교 + cherry-pick 매트릭스 + MVP scope), lock-in 대기 (Q1, Q2)
-  - 분석 결과: `docs/concepts/token-saver-concept.md` §3, §4
-  - 결정 대기: Q1 Python-only vs Rust 분리, Q2 CCR-lite storage 백엔드
+(현재 in-progress task 없음. TASK-002 planned, 구현 진입 직전.)
+
+### Planned
+
+- [ ] **TASK-002: MVP 1차 cycle — HTTP proxy skeleton + auth + provider router + fixture regression**
+  - spec: `docs/architecture.md` §2-§6
+  - LOC 예산: ~2,800 (proxy 400 + auth 200 + ratelimit 150 + detector 300 + compressor 400 + provider 500 + ccr 350 + cli 200 + tests 300)
+  - sub-task breakdown (TASK-002-1 ~ TASK-002-7): session_handoff.md §Next Actions 참조
+  - 권장 페이스: 1 session = 1 sub-task (~150-400 LOC, 1 chapter 패턴)
 
 ### Done
 
+- [x] **TASK-001: 라우터 아키텍처 및 scope 정의** — commit `e921182` + pending commit
+  - 3 reference 비교 (headroom 49.3k★ / tokenrouter 15★ / token-router 72★)
+  - cherry-pick 매트릭스 (~50% applicable)
+  - MVP scope P0/P1/P2 도출
+  - Q1/Q2 lock-in: Python-only 1차, Redis+Mongo multi-user
+  - 결과: `docs/concepts/token-saver-concept.md` + `docs/architecture.md`
 - [x] **TASK-000: workflow bootstrap** — Standard AI Workflow v0.9.5-beta 도입 (minimax-code harness), commit `bad7985`
   - 결과: ai-workflow/, .MiniMax/, MiniMax.md, MiniMax_config.example.json, docs/PROJECT_PROFILE.md
 
 ### Blocked
 
-- 🔒 **TASK-001 lock-in** — Q1/Q2 사용자 결정 대기
+(없음)

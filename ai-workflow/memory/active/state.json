@@ -24,33 +24,29 @@
     "runtime_checks": null
   },
   "session": {
-    "current_baseline": "TASK-001 분석 단계 완료. 3개 reference (headroom / tokenrouter / token-router) 비교 분석 + cherry-pick 매트릭스 + MVP scope 작성 완료. 사용자 lock-in 대기 (Q1: Python-only vs Rust 분리, Q2: CCR-lite storage 백엔드).",
-    "current_axis": "TASK-001 → Q1/Q2 결정 후 spec/plan 작성 사이클로 진입 예정.",
-    "current_focus": "TASK-001 라우터 아키텍처 및 scope 정의 — 분석 완료, lock-in 대기",
-    "in_progress_items": [
-      "TASK-001 라우터 아키텍처 및 scope 정의 — 분석 단계 완료, lock-in 대기"
-    ],
-    "blocked_items": [
-      "TASK-001 lock-in — Q1 (Python-only vs Rust 분리), Q2 (CCR-lite storage 백엔드) 사용자 결정 필요"
-    ],
+    "current_baseline": "TASK-001 lock-in 완료 (Q1: Python-only 1차, Q2: Redis+Mongo 조합 multi-user). docs/architecture.md 작성 완료. TASK-002 = MVP 구현 1차 cycle planned. 다음 세션은 TASK-002-1 (project skeleton + FastAPI + OpenAI-compatible endpoint mock) 부터 시작.",
+    "current_axis": "TASK-002 MVP 1차 cycle — HTTP proxy skeleton + auth + provider router (1개) + fixture regression. 한 session = 한 sub-task 사이클 권장.",
+    "current_focus": "TASK-002 MVP 구현 1차 cycle (planned)",
+    "in_progress_items": [],
+    "blocked_items": [],
     "recent_done_items": [
-      "TASK-001-1 reference 3종 분석 (headroom 49.3k★, tokenrouter 15★, token-router 72★) + 35배 LOC 규모 차이 확인",
-      "TASK-001-2 layer-by-layer 장단점 정리 + cherry-pick 매트릭스 작성",
-      "TASK-001-3 MVP scope (P0/P1/P2) 도출, 결정 대기 항목 Q1/Q2 식별",
-      "TASK-001-4 docs/concepts/token-saver-concept.md 영구 보존"
+      "TASK-001-5 Q1/Q2 lock-in 결정 반영 (concept 문서 §6 + §4 MVP scope 갱신)",
+      "TASK-001-6 docs/architecture.md 작성 (component overview + 11-step request lifecycle + Redis/Mongo data layer + multi-user isolation + RBAC matrix + docker-compose)",
+      "TASK-001 TASK-001 전체 done — concept + architecture 영구 보존 완료"
     ],
     "environment_constraints": []
   },
   "backlog": {
     "latest_backlog_path": "ai-workflow/memory/active/backlog/2026-06-24.md",
-    "task_count": 1,
-    "in_progress_items": [
+    "task_count": 2,
+    "in_progress_items": [],
+    "blocked_items": [],
+    "done_items": [
       "TASK-001"
     ],
-    "blocked_items": [
-      "TASK-001 lock-in (Q1, Q2 결정 대기)"
-    ],
-    "done_items": []
+    "planned_items": [
+      "TASK-002"
+    ]
   },
   "next_documents": [
     "docs/PROJECT_PROFILE.md",

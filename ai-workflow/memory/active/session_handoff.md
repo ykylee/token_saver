@@ -5,56 +5,66 @@
 - Purpose: Compact restore context for the next AI agent session.
 - Scope: current focus, task status, key changes, next actions, risks
 - Audience: AI agents, maintainers
-- Status: in_progress
+- Status: stable (TASK-001 done, TASK-002 ready)
 - Updated: 2026-06-24
-- Related docs: [Project Profile](../../docs/PROJECT_PROFILE.md), [Concept](../../docs/concepts/token-saver-concept.md), [Work Backlog](./work_backlog.md)
+- Related docs: [Project Profile](../../docs/PROJECT_PROFILE.md), [Concept](../../docs/concepts/token-saver-concept.md), [Architecture](../../docs/architecture.md), [Work Backlog](./work_backlog.md)
 
 ## Current Focus
 
-- TASK-001 라우터 아키텍처 및 scope 정의 — 분석 단계 완료, 사용자 lock-in 대기
-- 결정 대기: **Q1** Python-only vs Python+Rust 분리, **Q2** CCR-lite storage 백엔드
-- 분석 결과 영구 보존: `docs/concepts/token-saver-concept.md`
+- TASK-001 done — concept + architecture 영구 보존 완료, Q1/Q2 lock-in 완료
+- TASK-002 planned — MVP 1차 cycle (HTTP proxy skeleton + auth + provider router + fixture regression)
+- 다음 세션 시작: TASK-002-1 project skeleton (`pyproject.toml`, `src/`, `tests/`, `docker-compose.yml`)
 
 ## Work Status
 
-- TASK-001 라우터 아키텍처 및 scope 정의: in_progress (lock-in 대기)
-- TASK-001-1 reference 분석 (headroom / tokenrouter / token-router): done
-- TASK-001-2 layer-by-layer 장단점 + cherry-pick 매트릭스: done
-- TASK-001-3 MVP scope (P0/P1/P2) 도출 + Q1/Q2 결정 항목 식별: done
-- TASK-001-4 docs/concepts/token-saver-concept.md 영구 보존: done
+- TASK-001 라우터 아키텍처 및 scope 정의: **done**
+  - 3 reference 분석 + cherry-pick 매트릭스 + MVP scope: done
+  - Q1/Q2 lock-in (Python-only, Redis+Mongo multi-user): done
+  - docs/concepts/token-saver-concept.md 영구 보존: done
+  - docs/architecture.md (component / lifecycle / data layer / RBAC / deployment): done
+- TASK-002 MVP 1차 cycle: **planned** (구현 진입 직전)
 
-## Key Changes (2026-06-24)
+## Key Changes (2026-06-24, 누적)
 
 - bootstrap (Standard AI Workflow v0.9.5-beta, minimax-code harness) — commit `bad7985`
-  - ai-workflow/, .MiniMax/, MiniMax.md, MiniMax_config.example.json, docs/PROJECT_PROFILE.md
-  - mcp.json + MiniMax_config PYTHONPATH fix (workflow-source → ai-workflow)
-  - .gitignore 작성 (agent runtime dirs, pycache, real config.json)
-- TASK-001 reference 분석 + cherry-pick 매트릭스 + MVP scope — pending commit
-  - docs/concepts/token-saver-concept.md 신규 (3 reference 비교, layer 장단점, MVP scope)
-  - 3 reference repo: `~/repos/harness-refs/{headroom,tokenrouter,token-router}` (이미 clone됨)
+- TASK-001 reference 분석 + cherry-pick 매트릭스 + MVP scope — commit `e921182`
+- TASK-001 lock-in 결정 반영 + docs/architecture.md 작성 — pending commit
 
 ## Next Actions
 
-- [ ] Q1 결정 받기: Python-only 시작 vs 처음부터 Python+Rust (PyO3/maturin) 셋업
-- [ ] Q2 결정 받기: CCR-lite = SQLite 단일 파일 vs in-memory + disk snapshot
-- [ ] Q1/Q2 lock-in 후 TASK-001 spec 작성 (`docs/architecture.md` 초안)
-- [ ] TASK-002 = MVP 구현 1차 사이클 (HTTP proxy + content type detector + 1 compressor)
+- [ ] TASK-002-1: project skeleton — `pyproject.toml`, `src/token_saver/{proxy,auth,...}/`, `tests/fixtures/`, `docker-compose.yml`
+- [ ] TASK-002-2: FastAPI app + OpenAI-compatible `/v1/chat/completions` endpoint (mock response)
+- [ ] TASK-002-3: Bearer token auth + Redis session lookup
+- [ ] TASK-002-4: Mongo connection + users collection + admin seed script
+- [ ] TASK-002-5: Provider router + OpenAI client (real forwarding, e2e fixture)
+- [ ] TASK-002-6: Fixture-based regression test (1 case: OpenAI pass-through with mock provider)
+- [ ] TASK-002-7: CLI `token-saver serve` + `token-saver config show`
+- [ ] TASK-002 done → first release v0.1.0
 
 ## Risks & Blockers
 
-- **TASK-001 lock-in blocker**: Q1/Q2 사용자 결정 없으면 spec 작성 불가
-- LOC 규모 차이: headroom Rust 32k vs token-router Python 777 — 우리 MVP scope이 적정한지 검증 필요 (1차 release 후 회고)
-- OpenAI/Anthropic API rate limit: proxy가 단일 client보다 2-3x traffic 발생할 수 있음 → burst protection 필요 (P1)
+- **Q1/Q2 결정**: resolved (Python-only 1차, Redis+Mongo multi-user)
+- **MVP scope 적정성**: headroom 32k vs token-router 921 LOC 차이에서 우리 ~2,800 LOC 예산 적절한지 TASK-002 회고에서 검증
+- **Redis/Mongo 운영 부담**: multi-user 가정 → docker-compose 로컬 + production P1 (managed Redis/Atlas). 1차 release 는 docker-compose 만으로 충분.
+- **OpenAI/Anthropic API rate limit**: proxy가 단일 client보다 2-3x traffic 발생 가능 → burst protection P1
+- **Bearer token rotation**: 1차 release 는 TTL 1h 단일. rotation API 는 P1.
 
 ## Reference for next session
 
-- 3 reference 의 1차 출처: https://github.com/headroomlabs-ai/headroom, https://github.com/lkarlslund/tokenrouter, https://github.com/sleeplesshan/token-router
-- 로컬 clone: `~/repos/harness-refs/{headroom,tokenrouter,token-router}/`
-- cherry-pick 매트릭스 + MVP scope: `docs/concepts/token-saver-concept.md` §3, §4
+- **핵심 결정 (TASK-001 lock-in)**:
+  - Q1: Python-only 1차 (FastAPI + uvicorn). Rust core는 P2.
+  - Q2: Redis (hot) + Mongo (cold) 조합. multi-user 처음부터 가정.
+- **Component map**: `docs/architecture.md` §2
+- **Request lifecycle (11 steps)**: `docs/architecture.md` §3
+- **Redis schema**: `docs/architecture.md` §4.1 (6 key patterns + TTL)
+- **Mongo schema**: `docs/architecture.md` §4.2 (5 collections + indexes)
+- **RBAC matrix**: `docs/architecture.md` §5.2
+- **docker-compose**: `docs/architecture.md` §6.1
+- **LOC 예산 ~2,800**: `docs/architecture.md` §2.1
 
 ## 환경 노트
 
 - 작업 디렉토리: `/Users/yklee/repos/token_saver`
-- Python venv 미생성 — TASK-002 시작 시 `python3 -m venv .venv && pip install -r requirements.txt`
-- MCP transport_ready: false (`.MiniMax/mcp.json`) — draft 상태. TASK-002 와 함께 enable 검토
-- git 상태: main, 1 commit ahead of bootstrap (`bad7985`) — 본 session commit 대기
+- Python venv 미생성 — TASK-002-1 에서 `python3 -m venv .venv && pip install -e ".[dev]"`
+- MCP transport_ready: false — TASK-002 와 함께 enable 검토
+- git 상태: main, 2 commit (bad7985 + e921182) — TASK-002 시작 시 본 session commit 먼저 필요

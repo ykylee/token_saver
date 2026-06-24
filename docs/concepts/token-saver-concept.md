@@ -235,21 +235,36 @@ AI 에이전트(Claude Code, Codex, OpenCode, Gemini CLI 등)가 클라우드 LL
 - Image compression
 - Cross-agent memory (headroom 차용)
 
-## 6. 결정 대기 항목
+## 6. 결정 항목 (TASK-001 lock-in)
 
-다음 두 결정은 **TASK-001 lock-in** 전에 사용자 승인 필요.
+### Q1. Python-only vs Python+Rust 처음부터 분리 — **확정**
 
-### Q1. Python-only vs Python+Rust 처음부터 분리
+- **결정**: **Python-only (1차)**. FastAPI + uvicorn.
+- **이유**: P0의 hot path는 provider routing + content type detection + trivial compression이라 Python으로 충분. token-router가 777 LOC Python으로 동작하는 게 증거. headroom의 32k LOC Rust는 ML 모델 + 6 compressor + cache stabilization 까지 다 박았기 때문에 필요했던 규모.
+- **P2**: hot path가 실제 병목이 되는 지점이 발견되면 그때 PyO3/maturin 도입. 1차 release 후 회고에서 결정.
 
-- **추천**: Python-only 시작 (FastAPI + uvicorn). hot path가 실제로 병목일 때만 Rust 도입.
-- **이유**: headroom은 hot path가 압축이라서 Rust가 의미 있었는데, 우리 P0는 provider routing + content type detection + trivial compression이라 Python으로 충분. token-router가 777 LOC Python으로 동작하는 게 증거.
-- **대안**: 처음부터 PyO3/maturin 셋업 (headroom 모방). 단점: setup overhead, 첫 release 무거움.
+### Q2. CCR-lite storage 백엔드 — **확정**
 
-### Q2. CCR-lite storage 백엔드
+- **결정**: **Redis + Mongo 조합**. multi-user 가정.
+- **이유**:
+  - **Redis (hot path)**: request 단위 cache + rate limit counter + session lookup + KV cache hint + CCR-lite read-through cache. TTL 적합, microsecond latency.
+  - **Mongo (cold path)**: CCR-lite 영구 저장 + user metadata + provider config + conversation log + audit log. 영구성 + queryable + flexible schema.
+  - multi-user 가정 → 모든 data path 에 `user_id` 필터, Redis key prefix `user:{user_id}:...`, Mongo query에 `user_id` 조건 필수.
+- **Multi-user 영향**:
+  - Auth layer (Bearer token) + RBAC (admin/user 2단) 도입.
+  - Per-user rate limit, per-user CCR store, per-user provider config.
+  - Tenant isolation이 모든 layer 의 1차 concern.
 
-- **추천**: SQLite 단일 파일 (`~/.cache/token_saver/ccr.db`).
-- **이유**: 로컬 single-user 가정. Redis/Mongo 도입은 과함. multi-user 가야 하면 그때 마이그레이션.
-- **대안**: in-memory + disk snapshot (tokenrouter `pkg/cache/json_file.go` 패턴). 단점: snapshot 주기 사이 데이터 손실.
+### MVP scope 갱신 (Q1/Q2 반영)
+
+§4 MVP scope에 다음 2개 component 추가됨:
+- **Auth layer (Bearer token + RBAC)**: Redis session cache + Mongo users collection
+- **Rate limit (Redis)**: per-user, per-minute sliding window
+
+CCR-lite spec 변경: SQLite 단일 파일 → **Redis (hot) + Mongo (cold)**. architecture.md §3 에서 data layer 명세.
+
+P2 → P1 이동:
+- KV cache alignment (Redis cache hint 도입하면서 함께 구현)
 
 ## 7. Cross-reference
 
