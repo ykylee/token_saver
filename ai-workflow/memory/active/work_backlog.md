@@ -44,7 +44,8 @@
 
 ### Done
 
-- [x] **TASK-002-1: project skeleton** — pyproject.toml + src/token_saver/{proxy,auth,ratelimit,detector,compressor,provider,ccr,cli.py,config.py,__version__.py} + tests/conftest.py + test_import.py (16 tests) + docker-compose.yml + Dockerfile + .env.example + README + venv install verify. ruff/mypy/pytest all green. Skeleton LOC 507 (~17% of ~3,000 budget). commit pending in 2026-06-26 cycle.
+- [x] **TASK-002-2: OpenAI-compatible endpoints (mock)** — src/token_saver/models.py (OpenAI 호환 Pydantic schemas, extra='allow' for vendor extensions) + src/token_saver/proxy/routes/{chat_completions,models,admin}.py + proxy/app.py include_router + tests/test_chat_completions.py (8) + test_v1_models.py (3) + test_admin_health.py (2). Mock content deterministic (last user char count), X-Token-Saver-Mock header. stream=true → 400, validation → 422. Cumulative LOC 1240. ruff/mypy/pytest all green. commit pending in 2026-06-26 cycle.
+- [x] **TASK-002-1: project skeleton** — pyproject.toml + src/token_saver/{proxy,auth,ratelimit,detector,compressor,provider,ccr,cli.py,config.py,__version__.py} + tests/conftest.py + test_import.py (16 tests) + docker-compose.yml + Dockerfile + .env.example + README + venv install verify. ruff/mypy/pytest all green. Skeleton LOC 507 (~17% of ~3,000 budget). commit `d50fb97`.
 - [x] **TASK-001: 라우터 아키텍처 및 scope 정의** — commit `e921182` + `91fef89` + `6bbb7c9`
 
 ### Done

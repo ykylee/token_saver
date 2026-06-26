@@ -93,6 +93,7 @@ token-saver = "token_saver.cli:main"
 packages = [
     "token_saver",
     "token_saver.proxy",
+    "token_saver.proxy.routes",
     "token_saver.auth",
     "token_saver.ratelimit",
     "token_saver.detector",

@@ -24,32 +24,33 @@
     "runtime_checks": ".venv/bin/python -c 'from token_saver.proxy import create_app; print(\"app:\", create_app())'"
   },
   "session": {
-    "current_baseline": "TASK-002-1 done — project skeleton (pyproject + src + tests + docker-compose + Dockerfile + README + venv). 다음 session은 TASK-002-2 (FastAPI app + OpenAI-compatible /v1/chat/completions endpoint mock) 부터 시작.",
+    "current_baseline": "TASK-002-2 done — OpenAI-compatible /v1/chat/completions (mock) + /v1/models + /admin/health router surface. 다음 session은 TASK-002-3 (Bearer token auth + Redis session + RBAC dependency) 부터 시작.",
     "current_axis": "TASK-002 MVP 1차 cycle — HTTP proxy skeleton + auth + provider router + Provider Registry (test/list_models/cache) + fixture regression. 한 session = 한 sub-task 사이클 권장.",
-    "current_focus": "TASK-002-2 FastAPI mock endpoint",
+    "current_focus": "TASK-002-3 Bearer token auth + RBAC",
     "in_progress_items": [],
     "blocked_items": [],
     "recent_done_items": [
+      "TASK-002-2 OpenAI-compatible endpoints (mock): src/token_saver/models.py (ChatCompletionRequest/Response/Choice/Usage/ModelCard/List/ErrorEnvelope/HealthResponse, extra='allow' for vendor extensions) + src/token_saver/proxy/routes/{chat_completions,models,admin}.py + proxy/app.py include_router + tests/test_chat_completions.py (8 tests) + test_v1_models.py (3) + test_admin_health.py (2). Mock content deterministic (last user char count), X-Token-Saver-Mock header 첨부, stream=true → 400, validation → 422. Cumulative LOC 1240.",
       "TASK-002-1 project skeleton: pyproject.toml (FastAPI/uvicorn/httpx/redis/motor/pydantic/cryptography/argon2-cffi/python-ulid/click/structlog, dev extras pytest+respx+ruff+mypy) + src/token_saver/{proxy,auth,ratelimit,detector,compressor,provider,ccr,cli.py,config.py,__version__.py} + tests/conftest.py + test_import.py (16 tests) + docker-compose.yml + Dockerfile + .env.example + README + venv install verify (ruff clean, mypy clean, pytest 16 passed)",
       "GitHub origin remote 연결 (https://github.com/ykylee/token_saver.git) + main 4 commit push (bad7985..6bbb7c9)",
-      "TASK-001-followup-3 local LLM architecture 결정 반영: 별도 서버 가동 + URL/port/API key 연결 + Models API 동적 discovery (provider registration flow)",
-      "TASK-001-followup-2 architecture.md §1.2/§2/§3/§4/§5/§6/§7 갱신 — Provider Registry 모듈 추가, models_cache 필드, RBAC matrix 4 endpoint 추가, docker-compose에서 local LLM 서비스 제거",
-      "TASK-001-followup-1 LOC 예산 갱신: provider/ 500→650 (registry + connect + list_models), cli/ 200→250 (provider add/list/refresh)",
-      "TASK-001 TASK-001 전체 + follow-up done — concept + architecture + local LLM spec 영구 보존 완료"
+      "TASK-001-followup-3 local LLM architecture 결정 반영",
+      "TASK-001-followup-2 architecture.md 갱신 (Provider Registry, models_cache, RBAC matrix 4 endpoint, docker-compose local LLM 제거)",
+      "TASK-001-followup-1 LOC 예산 갱신: provider/ 500→650, cli/ 200→250",
+      "TASK-001 TASK-001 전체 + follow-up done"
     ],
     "environment_constraints": []
   },
   "backlog": {
     "latest_backlog_path": "ai-workflow/memory/active/backlog/2026-06-26.md",
-    "task_count": 3,
+    "task_count": 4,
     "in_progress_items": [],
     "blocked_items": [],
     "done_items": [
       "TASK-001",
-      "TASK-002-1"
+      "TASK-002-1",
+      "TASK-002-2"
     ],
     "planned_items": [
-      "TASK-002-2",
       "TASK-002-3",
       "TASK-002-4",
       "TASK-002-5",

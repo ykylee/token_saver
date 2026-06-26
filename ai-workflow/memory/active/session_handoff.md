@@ -13,7 +13,8 @@
 
 - TASK-001 done — concept + architecture 영구 보존 완료, Q1/Q2 lock-in 완료
 - TASK-002-1 done — project skeleton (pyproject.toml + src/ + tests/ + docker-compose + Dockerfile + README + venv install + 16 smoke tests)
-- 다음 세션 시작: TASK-002-2 FastAPI app + OpenAI-compatible `/v1/chat/completions` endpoint (mock response)
+- TASK-002-2 done — OpenAI-compatible `/v1/chat/completions` (mock) + `/v1/models` + `/admin/health` router surface
+- 다음 세션 시작: TASK-002-3 Bearer token auth + Redis session lookup + RBAC dependency
 
 ## Work Status
 
@@ -22,15 +23,15 @@
   - Q1/Q2 lock-in (Python-only, Redis+Mongo multi-user): done
   - docs/concepts/token-saver-concept.md 영구 보존: done
   - docs/architecture.md (component / lifecycle / data layer / RBAC / deployment): done
-- TASK-002-1 project skeleton: **done** (commit pending in 2026-06-26 cycle)
-  - pyproject.toml (PEP 440, deps FastAPI/uvicorn/httpx/redis/motor/pydantic/cryptography/argon2-cffi/python-ulid/click/structlog, dev extras pytest+respx+ruff+mypy)
-  - src/token_saver/ 7 sub-packages (proxy/auth/ratelimit/detector/compressor/provider/ccr) + cli.py + config.py + __version__.py
-  - tests/conftest.py + test_import.py (16 tests covering version/settings/app factory/healthz/public module imports/package layout vs pyproject)
-  - docker-compose.yml (Redis 7 + Mongo 7 + token-saver service, healthchecks)
-  - Dockerfile (multi-stage python:3.12-slim, non-root user, /healthz healthcheck)
-  - .env.example + README.md
-  - venv + `pip install -e ".[dev]"` verified, ruff/mypy/pytest all green
-- TASK-002 MVP 1차 cycle: **in_progress** (TASK-002-2 .. TASK-002-7 remaining)
+- TASK-002-1 project skeleton: **done** (commit `d50fb97`)
+- TASK-002-2 OpenAI-compatible endpoints (mock): **done** (commit pending in 2026-06-26 cycle)
+  - `src/token_saver/models.py` — OpenAI 호환 Pydantic schemas (ChatCompletionRequest/Response/Choice/Usage, ModelCard/List, ErrorEnvelope, HealthResponse). extra="allow" 로 vendor extension 허용
+  - `src/token_saver/proxy/routes/` — chat_completions / models / admin 3 router
+  - `src/token_saver/proxy/app.py` — include_router 3개, /healthz 유지
+  - Mock content: deterministic (last user message char count 포함), X-Token-Saver-Mock header 첨부
+  - stream=true → 400 stream_not_supported, validation → 422
+  - tests/test_chat_completions.py (8 tests) + test_v1_models.py (3 tests) + test_admin_health.py (2 tests) + test_import.py 갱신 (15 modules)
+- TASK-002 MVP 1차 cycle: **in_progress** (TASK-002-3 .. TASK-002-7 remaining)
 
 ## Key Changes (2026-06-26, 누적)
 
@@ -39,12 +40,17 @@
 - TASK-001 lock-in 결정 반영 + docs/architecture.md 작성 — commit `91fef89`
 - TASK-001 follow-up: local LLM = 별도 서버 + Models API discovery spec — commit `6bbb7c9`
 - GitHub origin remote 연결 (https://github.com/ykylee/token_saver.git) + 4 commit push
-- TASK-002-1 project skeleton (pyproject + src + tests + docker-compose + Dockerfile + README + smoke) — commit pending
+- TASK-002-1 project skeleton (pyproject + src + tests + docker-compose + Dockerfile + README + smoke) — commit `d50fb97`
+- TASK-002-2 OpenAI-compatible endpoints (mock) — commit pending
 
 ## Next Actions
 
-- [ ] TASK-002-2: FastAPI app + OpenAI-compatible `/v1/chat/completions` endpoint (mock response, no upstream call yet)
-- [ ] TASK-002-3: Bearer token auth + Redis session lookup
+- [ ] TASK-002-3: Bearer token auth + Redis session lookup + RBAC dependency (`/v1/auth/login`)
+- [ ] TASK-002-4: Mongo connection + users collection + admin seed script + indexes
+- [ ] TASK-002-5: Provider router + Provider Registry (test_connection + list_models + cache) + OpenAI client (real forwarding via httpx, e2e fixture via respx)
+- [ ] TASK-002-6: Fixture-based regression test (1 case: OpenAI pass-through with mock provider) + SSE streaming passthrough
+- [ ] TASK-002-7: CLI `token-saver serve` + `provider test` + `provider add` + `provider list` + `provider refresh` + `provider delete`
+- [ ] TASK-002 done → first release v0.1.0
 - [ ] TASK-002-4: Mongo connection + users collection + admin seed script
 - [ ] TASK-002-5: Provider router + Provider Registry (test_connection + list_models + cache) + OpenAI client (real forwarding, e2e fixture)
 - [ ] TASK-002-6: Fixture-based regression test (1 case: OpenAI pass-through with mock provider)
@@ -75,7 +81,8 @@
 - **docker-compose**: `docs/architecture.md` §6.1 (local LLM 제거, 별도 서버 가동)
 - **LOC 예산 ~3,000**: `docs/architecture.md` §2.1
 - **TASK-002-1 skeleton LOC**: 507 (src 251 + tests 256) — ~17% of budget
-- **Build verification (TASK-002-1)**: ruff clean, mypy clean (12 source files), pytest 16 passed
+- **TASK-002-2 cumulative LOC**: 1240 (src ~500 + tests ~740) — ~41% of budget
+- **Build verification (TASK-002-1/2)**: ruff clean, mypy clean (17 source files), pytest 36 passed
 
 ## 환경 노트
 

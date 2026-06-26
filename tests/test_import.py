@@ -60,8 +60,13 @@ def test_healthz_endpoint(client) -> None:
         "token_saver",
         "token_saver.config",
         "token_saver.cli",
+        "token_saver.models",
         "token_saver.proxy",
         "token_saver.proxy.app",
+        "token_saver.proxy.routes",
+        "token_saver.proxy.routes.chat_completions",
+        "token_saver.proxy.routes.models",
+        "token_saver.proxy.routes.admin",
         "token_saver.auth",
         "token_saver.ratelimit",
         "token_saver.detector",
@@ -89,6 +94,7 @@ def test_package_layout_matches_pyproject() -> None:
     expected = {
         "token_saver",
         "token_saver.proxy",
+        "token_saver.proxy.routes",
         "token_saver.auth",
         "token_saver.ratelimit",
         "token_saver.detector",
@@ -98,7 +104,7 @@ def test_package_layout_matches_pyproject() -> None:
     }
     found = {"token_saver"}
     for mod in pkgutil.walk_packages(token_saver.__path__, prefix="token_saver."):
-        # Only top-level + first-level subpackages — inner modules come later.
+        # Top-level + first-level subpackages — inner modules come later.
         depth = mod.name.count(".") - 1
         if depth <= 1:
             found.add(mod.name)
