@@ -34,12 +34,18 @@ __all__ = [
     "ModelCard",
     "ModelList",
     "HealthResponse",
+    "LoginRequest",
+    "LoginResponse",
+    "CurrentUser",
+    "UserRecord",
     "Role",
     "FinishReason",
+    "UserRole",
 ]
 
 Role = Literal["system", "user", "assistant", "tool", "developer", "function"]
 FinishReason = Literal["stop", "length", "tool_calls", "content_filter", "function_call"]
+UserRole = Literal["admin", "user"]
 
 
 class _OpenAIBase(BaseModel):
@@ -173,3 +179,51 @@ class HealthResponse(_OpenAIBase):
     version: str
     schema_version: int
     uptime_seconds: float
+
+
+# ----- Auth -----
+
+
+class LoginRequest(_OpenAIBase):
+    """POST body for ``POST /v1/auth/login``."""
+
+    email: str = Field(min_length=1, max_length=320)
+    password: str = Field(min_length=1, max_length=512)
+
+
+class LoginResponse(_OpenAIBase):
+    """Successful login response. ``token`` is the bearer credential."""
+
+    token: str
+    expires_in: int = Field(ge=1)
+    role: UserRole
+    user_id: str
+
+
+class CurrentUser(_OpenAIBase):
+    """Identity attached to a request after the auth dependency runs.
+
+    Pulled out of the Redis session payload and propagated via
+    ``request.state.user`` / FastAPI dependency injection. Routes that
+    need an authenticated identity declare ``Depends(get_current_user)``
+    (or one of the stricter role gates).
+    """
+
+    id: str
+    role: UserRole
+    email: str | None = None
+
+
+class UserRecord(_OpenAIBase):
+    """A row in the user store.
+
+    ``password_hash`` is an argon2id hash (NEVER plain text). The store
+    is responsible for hashing on insert; verification happens via
+    ``auth.crypto.verify_password``.
+    """
+
+    id: str
+    email: str
+    password_hash: str
+    role: UserRole
+    created_at: int

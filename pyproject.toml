@@ -122,7 +122,11 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "B", "UP"]
-ignore = ["E501"]
+# FastAPI's idiomatic `param: T = Depends(...)` triggers B008 ("function
+# call in default value"). It's the framework's intended pattern — see
+# https://fastapi.tiangolo.com/tutorial/dependencies/classes-as-dependencies/
+# We disable the rule globally rather than peppering `noqa` everywhere.
+ignore = ["E501", "B008"]
 
 [tool.mypy]
 python_version = "3.10"

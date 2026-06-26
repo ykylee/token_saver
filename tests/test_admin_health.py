@@ -1,8 +1,8 @@
 """End-to-end tests for the admin surface.
 
-TASK-002-2 ships ``/admin/health`` only. The RBAC layer that will
-gate it for non-admin callers lands in TASK-002-3; for now the route
-is open so the contract is exercised.
+TASK-002-3 promotes ``/admin/health`` to **admin-only**. The legacy
+``/healthz`` probe stays open so docker-compose healthchecks keep
+working without a token.
 """
 
 from __future__ import annotations
@@ -12,9 +12,26 @@ from fastapi.testclient import TestClient
 from token_saver import __version__
 
 
-def test_health_returns_ok(client: TestClient) -> None:
-    """Health probe responds 200 with ``status=ok`` and the package version."""
+def test_health_requires_admin_token(client: TestClient) -> None:
+    """No bearer → 401."""
     resp = client.get("/admin/health")
+    assert resp.status_code == 401
+    assert resp.headers.get("www-authenticate", "").lower().startswith("bearer")
+
+
+def test_health_rejects_user_role(client: TestClient, user_auth_header: dict[str, str]) -> None:
+    """Authenticated but non-admin → 403."""
+    resp = client.get("/admin/health", headers=user_auth_header)
+    assert resp.status_code == 403
+    body = resp.json()
+    assert body["detail"]["error"]["code"] == "forbidden"
+
+
+def test_health_allows_admin(
+    client: TestClient, admin_auth_header: dict[str, str]
+) -> None:
+    """Admin bearer → 200 + payload."""
+    resp = client.get("/admin/health", headers=admin_auth_header)
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["status"] == "ok"
@@ -25,7 +42,7 @@ def test_health_returns_ok(client: TestClient) -> None:
 
 
 def test_healthz_legacy_probe_still_works(client: TestClient) -> None:
-    """The legacy ``/healthz`` (container probe) survives the route split."""
+    """``/healthz`` stays open so container probes don't need a token."""
     resp = client.get("/healthz")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
