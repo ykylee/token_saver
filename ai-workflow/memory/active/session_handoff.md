@@ -16,7 +16,8 @@
 - TASK-002-2 done — OpenAI-compatible endpoints (mock)
 - TASK-002-3 done — Bearer token auth + session store + RBAC + admin-only `/admin/health` gate
 - TASK-002-4 done — Mongo users collection + admin seed + indexes + factory (memory/mongo backend switch)
-- 다음 세션 시작: TASK-002-5 Provider router + Provider Registry (test_connection + list_models + Redis cache + Mongo providers collection) + OpenAI/Anthropic/Ollama/vLLM clients + RedisSessionStore replace InMemory
+- TASK-002-5-a done — Provider core (BaseProvider Protocol + OpenAI-compat + Anthropic impls + Registry + Router + chat forward via httpx) + respx fixture
+- 다음 세션 시작: TASK-002-5-b ProviderStore + CRUD routes (test/add/list/refresh/delete) + RBAC + Mongo providers collection + Redis models cache + RedisSessionStore
 
 ## Work Status
 
@@ -24,26 +25,20 @@
 - TASK-002-1 project skeleton: **done** (commit `d50fb97`)
 - TASK-002-2 OpenAI-compatible endpoints (mock): **done** (commit `cba86bc`)
 - TASK-002-3 Bearer token auth + RBAC: **done** (commit `0f97b4c`)
-- TASK-002-4 Mongo users collection + admin seed + indexes: **done** (commit pending in 2026-06-26 cycle)
-  - `Settings.user_store_backend: Literal["memory", "mongo"] = "memory"` 추가 — operator env 가 backend 선택
-  - `auth/repository.py` 갱신:
-    - `UserStore` Protocol 에 `upsert(email, password, role)` 추가 (admin 경로)
-    - `InMemoryUserStore.upsert` — idempotent update (admin password rotate), `_seed_admin` 는 `admin_email/password` None 일 때 skip
-    - `MongoUserStore` 신규 — `AsyncIOMotorClient` + `ensure_indexes()` (email unique + role + created_at) + `_id` 보존 update + `close()`
-    - 공통: `_new_user_id()`, `_to_record()`, `_doc_to_record()` — wire format 정합
-  - `auth/factory.py` 신규 — `build_user_store(settings) -> (store, optional mongo_client)`. backend switch 단일 진입점. `UnknownUserStoreBackendError` 로 typo 차단
-  - `auth/seed.py` 신규 — `seed_admin(settings, store)`. strict-idempotent (existing admin password 절대 overwrite 안 함). `SeedAdminSkipped` 로 "skip" vs "created" 분기
-  - `proxy/app.py` 갱신:
-    - `build_user_store(settings)` 호출 — user_store + mongo_client 동시 획득
-    - FastAPI lifespan: startup 에서 `MongoUserStore.ensure_indexes` + `seed_admin` (InMemory 는 no-op). shutdown 에서 `mongo_client.close()`
-    - `app.state.session_store / user_store / mongo_client` attach
-  - `pyproject.toml` — dev dep `mongomock-motor>=0.0.36` 추가 (호환성 검증 완료)
-  - `.env.example` + `docker-compose.yml` — `TOKEN_SAVER_USER_STORE_BACKEND` 환경 변수 노출 (docker 는 `mongo`, local/test 는 `memory` 기본)
-  - tests/test_user_store_factory.py — backend 선택 2 + unknown backend raise 1 (model_construct 로 Literal 우회)
-  - tests/test_mongo_user_store.py — mongomock-motor CRUD 6 + unique index 1 (ensure idempotent / case-insensitive / _id 보존)
-  - tests/test_seed_admin.py — empty store + seed_admin 직접 호출 5 (created / strict-idempotent / no-config / partial-config / email case)
-  - tests/test_import.py — 21 → 23 modules parametrised
-- TASK-002 MVP 1차 cycle: **in_progress** (TASK-002-5 .. TASK-002-7 remaining)
+- TASK-002-4 Mongo users collection + admin seed + indexes: **done** (commit `2f069d7`)
+- TASK-002-5-a Provider core + chat real forward: **done** (commit pending in 2026-06-26 cycle)
+  - `provider/base.py` 신규 — `BaseProvider` Protocol + `ProviderConfig` / `ProviderTestResult` / `ModelInfo` / `InvokeOptions` / `ProviderError` (Connection/Response/Config) + `unwrap_text_content` / `usage_from_openai_compat` / `usage_from_anthropic` helper
+  - `provider/openai_compat.py` 신규 — `OpenAICompatProvider` (httpx async). OpenAI native + Ollama + vLLM 모두 처리 (wire format 동일). `test_connection` (GET /v1/models) + `list_models` + `invoke` (POST /v1/chat/completions)
+  - `provider/anthropic.py` 신규 — `AnthropicProvider`. system message 를 top-level `system` field 로 lift, `max_tokens` default 1024, `input_tokens`/`output_tokens` → `prompt_tokens`/`completion_tokens` 변환
+  - `provider/registry.py` 신규 — `ProviderRegistry` (id → BaseProvider map) + `register` / `unregister` / `get` / `find_by_type` / `find_default` / `all` / `aclose` + `from_config` factory (openai/ollama/vllm → OpenAICompatProvider, anthropic → AnthropicProvider, unknown → `UnknownProviderTypeError`)
+  - `provider/router.py` 신규 — `ProviderRouter`. prefix 파싱 (`openai/gpt-4o-mini` → (openai, gpt-4o-mini)) + 명시적 hint + registry default resolution + `AmbiguousProviderError` / `NoProviderAvailableError`
+  - `provider/deps.py` 신규 — `get_provider_registry` FastAPI dependency
+  - `models.py` 보강 — `ProviderType` / `ProviderTestRequest` / `ProviderTestResult` / `ProviderCreateRequest` / `ProviderRecord` / `ProviderInfo` / `ModelsRefreshResult` (TASK-002-5-b wire shape 미리 추가)
+  - `proxy/routes/chat_completions.py` 갱신 — mock path 제거 (MOCK_HEADER, _build_mock_completion, _estimate_tokens 삭제), `ProviderRouter.invoke` 호출. 400 ambiguous / 502 upstream / 503 no_provider_available / 422 validation / 400 stream_not_supported
+  - `proxy/app.py` 갱신 — `app.state.provider_registry = ProviderRegistry()`, lifespan shutdown 에 `provider_registry.aclose()` 호출
+  - `tests/test_chat_completions.py` 갱신 — mock 관련 test 제거, validation / stream / 503 (empty registry) / 503 (unknown prefix) 6 test 유지
+  - `tests/test_chat_completions_forwarding.py` 신규 — respx fixture 로 real forwarding wire path 검증 7 (happy / sampling knobs / provider prefix / extra fields / 5xx upstream / connection refused / ambiguous)
+- TASK-002 MVP 1차 cycle: **in_progress** (TASK-002-5-b .. TASK-002-7 remaining)
 
 ## Key Changes (2026-06-26, 누적)
 
@@ -55,12 +50,13 @@
 - TASK-002-1 project skeleton — commit `d50fb97`
 - TASK-002-2 OpenAI-compatible endpoints (mock) — commit `cba86bc`
 - TASK-002-3 Bearer token auth + RBAC — commit `0f97b4c`
-- TASK-002-4 Mongo users collection + admin seed + indexes — commit pending
+- TASK-002-4 Mongo users collection + admin seed + indexes — commit `2f069d7`
+- TASK-002-5-a Provider core + chat real forward — commit pending
 
 ## Next Actions
 
-- [ ] TASK-002-5: Provider router + Provider Registry (test_connection + list_models + Redis cache + Mongo providers collection) + OpenAI/Anthropic/Ollama/vLLM clients (real forwarding via httpx, e2e fixture via respx) + RedisSessionStore replace InMemorySessionStore
-- [ ] TASK-002-6: Fixture-based regression test (1 case: OpenAI pass-through with mock provider) + SSE streaming passthrough
+- [ ] TASK-002-5-b: ProviderStore (in-memory + Mongo) + CRUD routes (POST /v1/providers/test + /v1/providers + GET /v1/providers + POST /{id}/models/refresh + DELETE /{id}) + RBAC (own-only / all) + Redis models cache + RedisSessionStore
+- [ ] TASK-002-6: Fixture-based regression test (full end-to-end via Provider CRUD + chat forward) + SSE streaming passthrough
 - [ ] TASK-002-7: CLI `token-saver serve` + `provider test` + `provider add` + `provider list` + `provider refresh` + `provider delete`
 - [ ] TASK-002 done → first release v0.1.0
 - [ ] TASK-002-4: Mongo connection + users collection + admin seed script
@@ -96,7 +92,8 @@
 - **TASK-002-2 cumulative LOC**: 1240 (src ~500 + tests ~740) — ~41% of budget
 - **TASK-002-3 cumulative LOC**: 2098 (src ~870 + tests ~1230) — ~70% of budget
 - **TASK-002-4 cumulative LOC**: 2701 (src ~1180 + tests ~1520) — ~90% of budget
-- **Build verification (TASK-002-1/2/3/4)**: ruff clean, mypy clean (24 source files), pytest 77 passed
+- **TASK-002-5-a cumulative LOC**: 3987 (src ~1620 + tests ~2370) — **133% of budget** (over)
+- **Build verification (TASK-002-1..5-a)**: ruff clean, mypy clean (30 source files), pytest 82 passed
 
 ## 환경 노트
 

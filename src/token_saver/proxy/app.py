@@ -27,6 +27,7 @@ from token_saver.auth.repository import MongoUserStore, UserStore
 from token_saver.auth.seed import SeedAdminSkipped, seed_admin
 from token_saver.auth.tokens import InMemorySessionStore, SessionStore
 from token_saver.config import Settings, get_settings
+from token_saver.provider.registry import ProviderRegistry
 from token_saver.proxy.routes import admin, auth, chat_completions, models
 
 __all__ = ["create_app"]
@@ -55,6 +56,12 @@ async def _lifespan(app: FastAPI, settings: Settings) -> AsyncIterator[None]:
     mongo_client: AsyncIOMotorClient | None = app.state.mongo_client
     if mongo_client is not None:
         mongo_client.close()
+
+    provider_registry: ProviderRegistry | None = getattr(
+        app.state, "provider_registry", None
+    )
+    if provider_registry is not None:
+        await provider_registry.aclose()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -92,7 +99,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     # Auth stores — TASK-002-3 session store is still in-memory; the
-    # Redis-backed impl slots in next to it in TASK-002-5. We attach
+    # Redis-backed impl slots in next to it in TASK-002-5-b. We attach
     # the user store here; the factory is the only call site that
     # knows about the backend. Type annotations live on the module-level
     # aliases (not inline ``app.state.x: T = ...``) so mypy doesn't
@@ -101,6 +108,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.session_store = session_store
     app.state.user_store = user_store
     app.state.mongo_client = mongo_client
+
+    # Provider registry — starts empty. The Provider CRUD surface
+    # (TASK-002-5-b) will add per-user / cross-user registration;
+    # for TASK-002-5-a the operator (or test fixture) seeds it
+    # directly via ``app.state.provider_registry.register(...)``.
+    provider_registry: ProviderRegistry = ProviderRegistry()
+    app.state.provider_registry = provider_registry
 
     app.include_router(auth.router)
     app.include_router(chat_completions.router)

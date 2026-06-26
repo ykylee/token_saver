@@ -41,11 +41,19 @@ __all__ = [
     "Role",
     "FinishReason",
     "UserRole",
+    "ProviderType",
+    "ProviderTestRequest",
+    "ProviderTestResult",
+    "ProviderCreateRequest",
+    "ProviderRecord",
+    "ProviderInfo",
+    "ModelsRefreshResult",
 ]
 
 Role = Literal["system", "user", "assistant", "tool", "developer", "function"]
 FinishReason = Literal["stop", "length", "tool_calls", "content_filter", "function_call"]
 UserRole = Literal["admin", "user"]
+ProviderType = Literal["openai", "anthropic", "ollama", "vllm"]
 
 
 class _OpenAIBase(BaseModel):
@@ -227,3 +235,104 @@ class UserRecord(_OpenAIBase):
     password_hash: str
     role: UserRole
     created_at: int
+
+
+# ----- Providers -----
+
+
+class ProviderTestRequest(_OpenAIBase):
+    """POST body for ``POST /v1/providers/test`` (TASK-002-5-b).
+
+    Operator-supplied credentials + URL are run through the
+    provider's ``test_connection`` and the verdict returned in a
+    :class:`ProviderTestResult`. No persistence happens here — the
+    operator reviews the result before they hit ``POST /v1/providers``.
+    """
+
+    type: ProviderType
+    base_url: str = Field(min_length=1, max_length=2048)
+    api_key: str | None = Field(default=None, max_length=4096)
+    default_model: str | None = Field(default=None, max_length=256)
+
+
+class ProviderTestResult(_OpenAIBase):
+    """Outcome of a connection test.
+
+    Mirrors :class:`provider.base.ProviderTestResult` so the wire
+    shape and the in-process shape stay in lock-step.
+    """
+
+    ok: bool
+    latency_ms: int
+    models_count: int = 0
+    sample_models: list[ModelCard] = []
+    error: str | None = None
+
+
+class ProviderCreateRequest(_OpenAIBase):
+    """POST body for ``POST /v1/providers`` (TASK-002-5-b).
+
+    On success: the provider is persisted (Mongo providers
+    collection, encrypted at rest) and registered with the
+    in-process :class:`ProviderRegistry`.
+    """
+
+    name: str = Field(min_length=1, max_length=128)
+    type: ProviderType
+    base_url: str = Field(min_length=1, max_length=2048)
+    api_key: str | None = Field(default=None, max_length=4096)
+    default_model: str = Field(min_length=1, max_length=256)
+    enabled: bool = True
+
+
+class ProviderInfo(_OpenAIBase):
+    """Operator-facing summary of a registered provider.
+
+    API key is *never* included — we expose the type + URL + model
+    choice so the operator can identify the row, but secrets stay
+    server-side.
+    """
+
+    id: str
+    name: str
+    type: ProviderType
+    base_url: str
+    default_model: str
+    enabled: bool
+    owner_user_id: str | None = None
+
+
+class ProviderRecord(_OpenAIBase):
+    """Internal record stored in Mongo / in-memory (TASK-002-5-b).
+
+    Differs from :class:`ProviderInfo` in two ways:
+
+    - Holds the **decrypted** ``api_key`` (already past the AES-GCM
+      layer). Never returned over the wire.
+    - Tracks ``owner_user_id`` for tenant isolation (an admin
+      ``GET /v1/providers`` lists across users; a regular user
+      only sees their own).
+    """
+
+    id: str
+    name: str
+    type: ProviderType
+    base_url: str
+    api_key: str | None
+    default_model: str
+    enabled: bool
+    owner_user_id: str
+
+
+class ModelsRefreshResult(_OpenAIBase):
+    """Response for ``POST /v1/providers/{id}/models/refresh``.
+
+    ``added`` and ``removed`` are deltas versus the previously
+    cached catalog so an operator can see exactly what the refresh
+    changed.
+    """
+
+    provider_id: str
+    models_count: int
+    added: list[str] = []
+    removed: list[str] = []
