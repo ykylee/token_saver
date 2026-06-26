@@ -15,26 +15,35 @@
 - TASK-002-1 done — project skeleton
 - TASK-002-2 done — OpenAI-compatible endpoints (mock)
 - TASK-002-3 done — Bearer token auth + session store + RBAC + admin-only `/admin/health` gate
-- 다음 세션 시작: TASK-002-4 Mongo connection + users collection + admin seed script + indexes
+- TASK-002-4 done — Mongo users collection + admin seed + indexes + factory (memory/mongo backend switch)
+- 다음 세션 시작: TASK-002-5 Provider router + Provider Registry (test_connection + list_models + Redis cache + Mongo providers collection) + OpenAI/Anthropic/Ollama/vLLM clients + RedisSessionStore replace InMemory
 
 ## Work Status
 
 - TASK-001 라우터 아키텍처 및 scope 정의: **done** (commits `e921182` `91fef89` `6bbb7c9`)
 - TASK-002-1 project skeleton: **done** (commit `d50fb97`)
 - TASK-002-2 OpenAI-compatible endpoints (mock): **done** (commit `cba86bc`)
-- TASK-002-3 Bearer token auth + RBAC: **done** (commit pending in 2026-06-26 cycle)
-  - `src/token_saver/auth/crypto.py` — argon2 PasswordHasher + token generator + InvalidCredentialsError
-  - `src/token_saver/auth/tokens.py` — SessionStore Protocol + InMemorySessionStore (lazy expiry eviction)
-  - `src/token_saver/auth/repository.py` — UserStore Protocol + InMemoryUserStore (admin email/password seed from Settings)
-  - `src/token_saver/auth/deps.py` — get_session_store / get_user_store / get_current_user / require_admin / require_user (401 generic, 403 role mismatch)
-  - `src/token_saver/proxy/routes/auth.py` — POST /v1/auth/login (timing-safe dummy verify, generic invalid_credentials message)
-  - `src/token_saver/proxy/routes/admin.py` — require_admin dep on router (모든 /admin/* 보호)
-  - `src/token_saver/proxy/app.py` — create_app(settings) accepts Settings, app.state.session_store / app.state.user_store init
-  - `src/token_saver/models.py` — LoginRequest/Response, CurrentUser, UserRecord, UserRole literal
-  - tests/test_auth.py — 14 tests (login happy/wrong pwd/unknown email/422/ttl + bearer middleware + session store evict/revoke)
-  - tests/test_admin_health.py 보강 — admin-only gate (401/403/200 + /healthz legacy)
-  - conftest.py — admin_auth_header / user_auth_header / regular_user / admin_user fixture
-- TASK-002 MVP 1차 cycle: **in_progress** (TASK-002-4 .. TASK-002-7 remaining)
+- TASK-002-3 Bearer token auth + RBAC: **done** (commit `0f97b4c`)
+- TASK-002-4 Mongo users collection + admin seed + indexes: **done** (commit pending in 2026-06-26 cycle)
+  - `Settings.user_store_backend: Literal["memory", "mongo"] = "memory"` 추가 — operator env 가 backend 선택
+  - `auth/repository.py` 갱신:
+    - `UserStore` Protocol 에 `upsert(email, password, role)` 추가 (admin 경로)
+    - `InMemoryUserStore.upsert` — idempotent update (admin password rotate), `_seed_admin` 는 `admin_email/password` None 일 때 skip
+    - `MongoUserStore` 신규 — `AsyncIOMotorClient` + `ensure_indexes()` (email unique + role + created_at) + `_id` 보존 update + `close()`
+    - 공통: `_new_user_id()`, `_to_record()`, `_doc_to_record()` — wire format 정합
+  - `auth/factory.py` 신규 — `build_user_store(settings) -> (store, optional mongo_client)`. backend switch 단일 진입점. `UnknownUserStoreBackendError` 로 typo 차단
+  - `auth/seed.py` 신규 — `seed_admin(settings, store)`. strict-idempotent (existing admin password 절대 overwrite 안 함). `SeedAdminSkipped` 로 "skip" vs "created" 분기
+  - `proxy/app.py` 갱신:
+    - `build_user_store(settings)` 호출 — user_store + mongo_client 동시 획득
+    - FastAPI lifespan: startup 에서 `MongoUserStore.ensure_indexes` + `seed_admin` (InMemory 는 no-op). shutdown 에서 `mongo_client.close()`
+    - `app.state.session_store / user_store / mongo_client` attach
+  - `pyproject.toml` — dev dep `mongomock-motor>=0.0.36` 추가 (호환성 검증 완료)
+  - `.env.example` + `docker-compose.yml` — `TOKEN_SAVER_USER_STORE_BACKEND` 환경 변수 노출 (docker 는 `mongo`, local/test 는 `memory` 기본)
+  - tests/test_user_store_factory.py — backend 선택 2 + unknown backend raise 1 (model_construct 로 Literal 우회)
+  - tests/test_mongo_user_store.py — mongomock-motor CRUD 6 + unique index 1 (ensure idempotent / case-insensitive / _id 보존)
+  - tests/test_seed_admin.py — empty store + seed_admin 직접 호출 5 (created / strict-idempotent / no-config / partial-config / email case)
+  - tests/test_import.py — 21 → 23 modules parametrised
+- TASK-002 MVP 1차 cycle: **in_progress** (TASK-002-5 .. TASK-002-7 remaining)
 
 ## Key Changes (2026-06-26, 누적)
 
@@ -45,11 +54,11 @@
 - GitHub origin remote 연결 (https://github.com/ykylee/token_saver.git) + 4 commit push
 - TASK-002-1 project skeleton — commit `d50fb97`
 - TASK-002-2 OpenAI-compatible endpoints (mock) — commit `cba86bc`
-- TASK-002-3 Bearer token auth + RBAC — commit pending
+- TASK-002-3 Bearer token auth + RBAC — commit `0f97b4c`
+- TASK-002-4 Mongo users collection + admin seed + indexes — commit pending
 
 ## Next Actions
 
-- [ ] TASK-002-4: Mongo connection + users collection + admin seed script + indexes (MongoUserStore replace InMemoryUserStore via factory in create_app)
 - [ ] TASK-002-5: Provider router + Provider Registry (test_connection + list_models + Redis cache + Mongo providers collection) + OpenAI/Anthropic/Ollama/vLLM clients (real forwarding via httpx, e2e fixture via respx) + RedisSessionStore replace InMemorySessionStore
 - [ ] TASK-002-6: Fixture-based regression test (1 case: OpenAI pass-through with mock provider) + SSE streaming passthrough
 - [ ] TASK-002-7: CLI `token-saver serve` + `provider test` + `provider add` + `provider list` + `provider refresh` + `provider delete`
@@ -86,7 +95,8 @@
 - **TASK-002-1 skeleton LOC**: 507 (src 251 + tests 256) — ~17% of budget
 - **TASK-002-2 cumulative LOC**: 1240 (src ~500 + tests ~740) — ~41% of budget
 - **TASK-002-3 cumulative LOC**: 2098 (src ~870 + tests ~1230) — ~70% of budget
-- **Build verification (TASK-002-1/2/3)**: ruff clean, mypy clean (22 source files), pytest 60 passed
+- **TASK-002-4 cumulative LOC**: 2701 (src ~1180 + tests ~1520) — ~90% of budget
+- **Build verification (TASK-002-1/2/3/4)**: ruff clean, mypy clean (24 source files), pytest 77 passed
 
 ## 환경 노트
 

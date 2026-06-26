@@ -58,6 +58,10 @@ class Settings(BaseSettings):
         description="MongoDB connection URL (cold storage).",
     )
     mongo_db_name: str = Field(default="token_saver")
+    # User store backend. ``memory`` keeps tests + local dev hermetic;
+    # ``mongo`` is what docker-compose and production run. The factory
+    # in ``auth.factory`` picks the impl at startup.
+    user_store_backend: Literal["memory", "mongo"] = "memory"
 
     # ----- Auth / crypto -----
     master_key: str = Field(

@@ -68,6 +68,8 @@ services:
       # localhost which is wrong inside the docker network.
       TOKEN_SAVER_REDIS_URL: redis://redis:6379/0
       TOKEN_SAVER_MONGO_URL: mongodb://token_saver:token_saver@mongo:27017/token_saver?authSource=admin
+      # Switch from the in-memory default to the real Mongo backend.
+      TOKEN_SAVER_USER_STORE_BACKEND: mongo
     command: ["token-saver", "serve", "--host", "0.0.0.0", "--port", "8787"]
 
 volumes:

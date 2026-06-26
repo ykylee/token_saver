@@ -44,7 +44,8 @@
 
 ### Done
 
-- [x] **TASK-002-3: Bearer token auth + RBAC** — src/token_saver/auth/{crypto,tokens,repository,deps}.py (argon2 PasswordHasher, SessionStore Protocol + InMemorySessionStore lazy-evict, UserStore Protocol + InMemoryUserStore with admin seed, get_current_user/require_admin/require_user deps) + src/token_saver/proxy/routes/auth.py (POST /v1/auth/login, timing-safe dummy verify, generic invalid_credentials) + admin.py require_admin dep on router + proxy/app.py create_app(settings) + models.py 보강 (LoginRequest/Response/CurrentUser/UserRecord/UserRole) + tests/test_auth.py (14) + test_admin_health.py (4) + conftest.py (admin_auth_header/user_auth_header/regular_user fixture). Cumulative LOC 2098 (60 passed). ruff/mypy/pytest all green. commit pending in 2026-06-26 cycle.
+- [x] **TASK-002-4: Mongo users collection + admin seed + indexes** — Settings.user_store_backend (memory|mongo) 추가 + auth/repository.py 갱신 (UserStore Protocol upsert + InMemoryUserStore.upsert + MongoUserStore with ensure_indexes + _id preservation) + auth/factory.py build_user_store + auth/seed.py seed_admin strict-idempotent (existing admin password 절대 overwrite 안 함) + proxy/app.py lifespan (ensure_indexes + seed_admin + mongo_client.close) + mongomock-motor dev dep + .env.example/docker-compose env var + tests/test_user_store_factory.py (3) + test_mongo_user_store.py (7) + test_seed_admin.py (5). Cumulative LOC 2701 (77 passed). ruff/mypy/pytest all green. commit pending in 2026-06-26 cycle.
+- [x] **TASK-002-3: Bearer token auth + RBAC** — commit `0f97b4c`
 - [x] **TASK-002-2: OpenAI-compatible endpoints (mock)** — commit `cba86bc`
 - [x] **TASK-002-1: project skeleton** — commit `d50fb97`
 - [x] **TASK-001: 라우터 아키텍처 및 scope 정의** — commit `e921182` + `91fef89` + `6bbb7c9`

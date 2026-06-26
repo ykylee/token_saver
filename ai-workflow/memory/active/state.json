@@ -24,33 +24,34 @@
     "runtime_checks": ".venv/bin/python -c 'from token_saver.proxy import create_app; print(\"app:\", create_app())'"
   },
   "session": {
-    "current_baseline": "TASK-002-3 done — Bearer token auth + SessionStore/UserStore Protocol + InMemory impl + RBAC dep + /admin/health admin-only. 다음 session은 TASK-002-4 (Mongo connection + users collection + admin seed script + indexes) 부터 시작.",
+    "current_baseline": "TASK-002-4 done — Mongo users collection + admin seed + indexes + factory (memory/mongo backend switch) + lifespan. 다음 session은 TASK-002-5 (Provider router + Provider Registry + OpenAI/Anthropic/Ollama/vLLM clients + RedisSessionStore) 부터 시작.",
     "current_axis": "TASK-002 MVP 1차 cycle — HTTP proxy skeleton + auth + provider router + Provider Registry (test/list_models/cache) + fixture regression. 한 session = 한 sub-task 사이클 권장.",
-    "current_focus": "TASK-002-4 Mongo users collection",
+    "current_focus": "TASK-002-5 Provider Registry",
     "in_progress_items": [],
     "blocked_items": [],
     "recent_done_items": [
-      "TASK-002-3 Bearer token auth + RBAC: src/token_saver/auth/{crypto,tokens,repository,deps}.py + src/token_saver/proxy/routes/auth.py + models.py 보강 (LoginRequest/Response/CurrentUser/UserRecord/UserRole) + proxy/app.py create_app(settings) accepts Settings + app.state.session_store/user_store init + admin.py require_admin dep. tests/test_auth.py (14) + test_admin_health.py (4) + conftest.py (admin_auth_header/user_auth_header/regular_user fixture). Cumulative LOC 2098 (60 passed).",
-      "TASK-002-2 OpenAI-compatible endpoints (mock): src/token_saver/models.py + src/token_saver/proxy/routes/{chat_completions,models,admin}.py + proxy/app.py include_router + tests/test_chat_completions.py (8) + test_v1_models.py (3) + test_admin_health.py (2). Mock content deterministic, X-Token-Saver-Mock header. Cumulative LOC 1240.",
-      "TASK-002-1 project skeleton: pyproject.toml + src/token_saver/{proxy,auth,ratelimit,detector,compressor,provider,ccr,cli.py,config.py,__version__.py} + tests/conftest.py + test_import.py (16 tests) + docker-compose.yml + Dockerfile + .env.example + README. ruff/mypy/pytest green.",
-      "GitHub origin remote 연결 + main 4 commit push",
+      "TASK-002-4 Mongo users + admin seed + indexes: Settings.user_store_backend 추가 + auth/repository.py 갱신 (UserStore Protocol upsert + InMemoryUserStore.upsert + MongoUserStore with ensure_indexes + _id preservation) + auth/factory.py build_user_store backend selector + auth/seed.py seed_admin strict-idempotent + proxy/app.py lifespan startup (ensure_indexes + seed_admin) + shutdown (mongo_client.close). mongomock-motor dev dep. .env.example/docker-compose 갱신. tests/test_user_store_factory.py (3) + test_mongo_user_store.py (7) + test_seed_admin.py (5). Cumulative LOC 2701 (77 passed).",
+      "TASK-002-3 Bearer token auth + RBAC: src/token_saver/auth/{crypto,tokens,repository,deps}.py + routes/auth.py + models.py 보강 + admin.py require_admin dep + proxy/app.py create_app(settings). 14 auth tests + 4 admin health tests + conftest fixtures. Cumulative LOC 2098.",
+      "TASK-002-2 OpenAI-compatible endpoints (mock): models.py + routes/{chat_completions,models,admin}.py + app.py include_router. 13 tests. Cumulative LOC 1240.",
+      "TASK-002-1 project skeleton: pyproject + src + tests + docker-compose + Dockerfile + README. Cumulative LOC 507.",
+      "GitHub origin remote 연결 + 4 commit push",
       "TASK-001 follow-ups + TASK-001 done"
     ],
     "environment_constraints": []
   },
   "backlog": {
     "latest_backlog_path": "ai-workflow/memory/active/backlog/2026-06-26.md",
-    "task_count": 5,
+    "task_count": 6,
     "in_progress_items": [],
     "blocked_items": [],
     "done_items": [
       "TASK-001",
       "TASK-002-1",
       "TASK-002-2",
-      "TASK-002-3"
+      "TASK-002-3",
+      "TASK-002-4"
     ],
     "planned_items": [
-      "TASK-002-4",
       "TASK-002-5",
       "TASK-002-6",
       "TASK-002-7"

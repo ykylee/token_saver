@@ -72,6 +72,8 @@ def test_healthz_endpoint(client) -> None:
         "token_saver.auth.crypto",
         "token_saver.auth.tokens",
         "token_saver.auth.repository",
+        "token_saver.auth.factory",
+        "token_saver.auth.seed",
         "token_saver.auth.deps",
         "token_saver.ratelimit",
         "token_saver.detector",
