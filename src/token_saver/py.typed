@@ -1,0 +1,1 @@
+"""Mark :mod:`token_saver` as distributing type information (``py.typed``)."""

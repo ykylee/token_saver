@@ -1,0 +1,75 @@
+# Local-development stack for token_saver.
+#
+# Services:
+#   - redis    : hot storage (sessions, rate limits, model cache hints)
+#   - mongo    : cold storage (users, providers, ccr_store, conversations, audit_log)
+#   - token-saver : the FastAPI app itself
+#
+# Local LLM providers (Ollama / vLLM) are INTENTIONALLY NOT included here.
+# They run on a separate GPU host (see docs/architecture.md §6.1). The proxy
+# connects to them via `base_url` at provider-registration time.
+#
+# Quick start:
+#   cp .env.example .env  # then edit secrets
+#   docker compose up -d redis mongo
+#   docker compose run --rm token-saver python -m token_saver.cli init-db
+#   docker compose up token-saver
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: token-saver-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mongo:
+    image: mongo:7
+    container_name: token-saver-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: token_saver
+      MONGO_INITDB_ROOT_PASSWORD: token_saver
+      MONGO_INITDB_DATABASE: token_saver
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  token-saver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: token-saver-app
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    ports:
+      - "8787:8787"
+    env_file:
+      - .env
+    environment:
+      # Override container-to-container DNS — the .env file may point at
+      # localhost which is wrong inside the docker network.
+      TOKEN_SAVER_REDIS_URL: redis://redis:6379/0
+      TOKEN_SAVER_MONGO_URL: mongodb://token_saver:token_saver@mongo:27017/token_saver?authSource=admin
+    command: ["token-saver", "serve", "--host", "0.0.0.0", "--port", "8787"]
+
+volumes:
+  redis-data:
+  mongo-data:

@@ -16,12 +16,13 @@
 
 ## 2. 날짜별 백로그
 - [2026-06-24](./backlog/2026-06-24.md)
+- [2026-06-26](./backlog/2026-06-26.md)
 
 ## 3. 전체 작업 상태 요약
 
 ### In Progress
 
-(현재 in-progress task 없음. TASK-002 planned, 구현 진입 직전.)
+(현재 in-progress task 없음. TASK-002-2 진입 직전.)
 
 ### Planned
 
@@ -34,6 +35,17 @@
     - BaseProvider Protocol + test_connection() + list_models()
     - OpenAI / Anthropic / Ollama / vLLM impl 모두 동일한 Protocol 구현
     - Redis cache (TTL 1h) + Mongo models_cache 영구 저장
+  - **TASK-002-2**: FastAPI app + OpenAI-compatible `/v1/chat/completions` endpoint (mock response, no upstream call yet)
+  - **TASK-002-3**: Bearer token auth + Redis session lookup + RBAC
+  - **TASK-002-4**: Mongo connection + users collection + admin seed script + indexes
+  - **TASK-002-5**: Provider router + Provider Registry (test_connection + list_models + cache) + OpenAI client (real forwarding, e2e fixture via respx)
+  - **TASK-002-6**: Fixture-based regression test (1 case: OpenAI pass-through with mock provider)
+  - **TASK-002-7**: CLI `token-saver serve` + `provider test` + `provider add` + `provider list` + `provider refresh` + `provider delete`
+
+### Done
+
+- [x] **TASK-002-1: project skeleton** — pyproject.toml + src/token_saver/{proxy,auth,ratelimit,detector,compressor,provider,ccr,cli.py,config.py,__version__.py} + tests/conftest.py + test_import.py (16 tests) + docker-compose.yml + Dockerfile + .env.example + README + venv install verify. ruff/mypy/pytest all green. Skeleton LOC 507 (~17% of ~3,000 budget). commit pending in 2026-06-26 cycle.
+- [x] **TASK-001: 라우터 아키텍처 및 scope 정의** — commit `e921182` + `91fef89` + `6bbb7c9`
 
 ### Done
 

@@ -1,13 +1,13 @@
 {
   "schema_version": "1",
-  "generated_at": "2026-06-24",
+  "generated_at": "2026-06-26",
   "purpose_digest": "OpenAI-compatible proxy + policy engine: content-type 인지 (text/json/code/log) + pluggable compressor registry + CCR-lite(SQLite) + provider router. MVP는 Python-only FastAPI, fixture-based regression.",
   "purpose_digest_rev": 1,
   "source_of_truth": {
     "project_profile_path": "docs/PROJECT_PROFILE.md",
     "session_handoff_path": "ai-workflow/memory/active/session_handoff.md",
     "work_backlog_index_path": "ai-workflow/memory/active/work_backlog.md",
-    "latest_backlog_path": "ai-workflow/memory/active/backlog/2026-06-24.md",
+    "latest_backlog_path": "ai-workflow/memory/active/backlog/2026-06-26.md",
     "repository_assessment_path": null
   },
   "project": {
@@ -19,41 +19,49 @@
     "environment_path": "<ai-workflow/memory/active/repository_assessment.md>"
   },
   "commands": {
-    "quick_tests": "TODO: 빠른 테스트 명령 입력",
-    "isolated_tests": "TODO: 격리 테스트 명령 입력",
-    "runtime_checks": null
+    "quick_tests": "pytest -q",
+    "isolated_tests": "pytest -q -k 'not network'",
+    "runtime_checks": ".venv/bin/python -c 'from token_saver.proxy import create_app; print(\"app:\", create_app())'"
   },
   "session": {
-    "current_baseline": "TASK-001 lock-in 완료 (Q1: Python-only 1차, Q2: Redis+Mongo 조합 multi-user). docs/architecture.md 작성 완료. TASK-002 = MVP 구현 1차 cycle planned. 다음 세션은 TASK-002-1 (project skeleton + FastAPI + OpenAI-compatible endpoint mock) 부터 시작.",
+    "current_baseline": "TASK-002-1 done — project skeleton (pyproject + src + tests + docker-compose + Dockerfile + README + venv). 다음 session은 TASK-002-2 (FastAPI app + OpenAI-compatible /v1/chat/completions endpoint mock) 부터 시작.",
     "current_axis": "TASK-002 MVP 1차 cycle — HTTP proxy skeleton + auth + provider router + Provider Registry (test/list_models/cache) + fixture regression. 한 session = 한 sub-task 사이클 권장.",
-    "current_focus": "TASK-002 MVP 구현 1차 cycle (planned)",
+    "current_focus": "TASK-002-2 FastAPI mock endpoint",
     "in_progress_items": [],
     "blocked_items": [],
-"recent_done_items": [
-      "TASK-001-followup-1 local LLM architecture 결정 반영: 별도 서버 가동 + URL/port/API key 연결 + Models API 동적 discovery (provider registration flow)",
+    "recent_done_items": [
+      "TASK-002-1 project skeleton: pyproject.toml (FastAPI/uvicorn/httpx/redis/motor/pydantic/cryptography/argon2-cffi/python-ulid/click/structlog, dev extras pytest+respx+ruff+mypy) + src/token_saver/{proxy,auth,ratelimit,detector,compressor,provider,ccr,cli.py,config.py,__version__.py} + tests/conftest.py + test_import.py (16 tests) + docker-compose.yml + Dockerfile + .env.example + README + venv install verify (ruff clean, mypy clean, pytest 16 passed)",
+      "GitHub origin remote 연결 (https://github.com/ykylee/token_saver.git) + main 4 commit push (bad7985..6bbb7c9)",
+      "TASK-001-followup-3 local LLM architecture 결정 반영: 별도 서버 가동 + URL/port/API key 연결 + Models API 동적 discovery (provider registration flow)",
       "TASK-001-followup-2 architecture.md §1.2/§2/§3/§4/§5/§6/§7 갱신 — Provider Registry 모듈 추가, models_cache 필드, RBAC matrix 4 endpoint 추가, docker-compose에서 local LLM 서비스 제거",
-      "TASK-001-followup-3 LOC 예산 갱신: provider/ 500→650 (registry + connect + list_models), cli/ 200→250 (provider add/list/refresh)",
+      "TASK-001-followup-1 LOC 예산 갱신: provider/ 500→650 (registry + connect + list_models), cli/ 200→250 (provider add/list/refresh)",
       "TASK-001 TASK-001 전체 + follow-up done — concept + architecture + local LLM spec 영구 보존 완료"
     ],
     "environment_constraints": []
   },
   "backlog": {
-    "latest_backlog_path": "ai-workflow/memory/active/backlog/2026-06-24.md",
-    "task_count": 2,
+    "latest_backlog_path": "ai-workflow/memory/active/backlog/2026-06-26.md",
+    "task_count": 3,
     "in_progress_items": [],
     "blocked_items": [],
     "done_items": [
-      "TASK-001"
+      "TASK-001",
+      "TASK-002-1"
     ],
     "planned_items": [
-      "TASK-002"
+      "TASK-002-2",
+      "TASK-002-3",
+      "TASK-002-4",
+      "TASK-002-5",
+      "TASK-002-6",
+      "TASK-002-7"
     ]
   },
   "next_documents": [
     "docs/PROJECT_PROFILE.md",
     "ai-workflow/memory/active/session_handoff.md",
     "ai-workflow/memory/active/work_backlog.md",
-    "ai-workflow/memory/active/backlog/2026-06-24.md"
+    "ai-workflow/memory/active/backlog/2026-06-26.md"
   ],
   "repository_assessment": {
     "path": null,
