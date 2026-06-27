@@ -67,6 +67,7 @@ dev = [
     "pytest-cov>=4.0",
     "respx>=0.21",                # httpx mocking for provider fixtures
     "mongomock-motor>=0.0.36",    # in-process MongoDB for MongoUserStore tests
+    "fakeredis>=2.20",            # in-process Redis for RedisSessionStore + cache tests
     "ruff>=0.1",
     "mypy>=1.0",
 ]

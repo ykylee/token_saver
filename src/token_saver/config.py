@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     # ``mongo`` is what docker-compose and production run. The factory
     # in ``auth.factory`` picks the impl at startup.
     user_store_backend: Literal["memory", "mongo"] = "memory"
+    # Provider store backend (TASK-002-5-b). Same memory/mongo split
+    # as the user store; lives in its own factory
+    # (``provider.factory``) so the two can be swapped independently.
+    provider_store_backend: Literal["memory", "mongo"] = "memory"
 
     # ----- Auth / crypto -----
     master_key: str = Field(

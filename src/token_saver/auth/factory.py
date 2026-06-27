@@ -1,4 +1,4 @@
-"""Factory: pick a user-store implementation based on ``Settings``.
+"""Factory: pick a user-store + session-store implementation based on ``Settings``.
 
 Single decision point for the in-memory vs. Mongo choice. Centralised
 so call sites (``create_app`` and tests) just say
@@ -14,11 +14,17 @@ file flags a typo at startup.
 from __future__ import annotations
 
 from motor.motor_asyncio import AsyncIOMotorClient
+from redis.asyncio import Redis
 
 from token_saver.auth.repository import InMemoryUserStore, MongoUserStore, UserStore
+from token_saver.auth.tokens import InMemorySessionStore, RedisSessionStore, SessionStore
 from token_saver.config import Settings
 
-__all__ = ["build_user_store", "UnknownUserStoreBackendError"]
+__all__ = [
+    "build_user_store",
+    "build_session_store",
+    "UnknownUserStoreBackendError",
+]
 
 
 class UnknownUserStoreBackendError(ValueError):
@@ -47,4 +53,22 @@ def build_user_store(settings: Settings) -> tuple[UserStore, AsyncIOMotorClient 
     raise UnknownUserStoreBackendError(
         f"Unknown user_store_backend={backend!r}. "
         "Expected one of: 'memory', 'mongo'."
+    )
+
+
+def build_session_store(
+    settings: Settings, redis_client: Redis | None
+) -> SessionStore:
+    """Pick a session-store backend.
+
+    Returns a :class:`RedisSessionStore` when ``redis_client`` is
+    provided (production), :class:`InMemorySessionStore` otherwise.
+    The TTL on the Redis variant is taken from
+    ``Settings.session_ttl_seconds`` (architecture §4.1 default 1h).
+    """
+    if redis_client is None:
+        return InMemorySessionStore()
+    return RedisSessionStore(
+        client=redis_client,
+        ttl_seconds=settings.session_ttl_seconds,
     )

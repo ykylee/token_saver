@@ -50,9 +50,17 @@ def settings() -> Settings:
     Bypasses the lru_cache singleton so each test gets an isolated
     Settings — critical because ``InMemoryUserStore(settings)`` reads
     admin_email/admin_password at construction time.
+
+    ``redis_url`` is explicitly cleared to ``""`` so the provider
+    factory's Redis client stays un-built and tests don't need a
+    live Redis. Tests that want Redis behaviour set it explicitly.
     """
     get_settings.cache_clear()
-    return Settings(admin_email=ADMIN_EMAIL, admin_password=ADMIN_PASSWORD)
+    return Settings(
+        admin_email=ADMIN_EMAIL,
+        admin_password=ADMIN_PASSWORD,
+        redis_url="",
+    )
 
 
 @pytest.fixture

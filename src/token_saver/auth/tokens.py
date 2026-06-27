@@ -1,11 +1,12 @@
 """Session store — bearer-token → user info.
 
 The architecture (docs/architecture.md §4.1) calls for Redis keys
-shaped ``session:{token}`` with a 1h TTL. TASK-002-3 ships the
-**Protocol** plus an in-memory implementation so tests stay isolated
-from a live Redis. A real ``RedisSessionStore`` slots in next to
-``InMemorySessionStore`` without touching call sites — same shape,
-same TTL semantics, same wire format.
+shaped ``session:{token}`` with a 1h TTL. Three impls:
+
+- :class:`InMemorySessionStore` — process-local. Used by tests and as
+  the default fallback. NOT safe across multiple workers.
+- :class:`RedisSessionStore` — production. Same Protocol surface,
+  talks to ``redis.asyncio.Redis``.
 
 Two rules we hold onto everywhere:
 
@@ -23,7 +24,9 @@ import time
 from dataclasses import dataclass
 from typing import Protocol
 
-__all__ = ["SessionStore", "InMemorySessionStore", "SessionPayload"]
+from redis.asyncio import Redis
+
+__all__ = ["SessionStore", "InMemorySessionStore", "RedisSessionStore", "SessionPayload"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,8 +63,8 @@ class InMemorySessionStore:
     """Process-local session store, used by tests and as a fallback.
 
     NOT safe across multiple workers. Real deployments wire a
-    Redis-backed impl (TASK-002-5 follow-up) so a user authenticated on
-    one worker is recognised by all of them.
+    Redis-backed impl so a user authenticated on one worker is
+    recognised by all of them.
     """
 
     def __init__(self) -> None:
@@ -88,3 +91,98 @@ class InMemorySessionStore:
     # for a Redis impl that can't easily expose a "snapshot" view.
     def __len__(self) -> int:  # pragma: no cover - diagnostic only
         return len(self._by_token)
+
+
+class RedisSessionStore:
+    """Redis-backed session store.
+
+    Key shape: ``session:{token}`` (matches architecture §4.1). The
+    value is a JSON-encoded :class:`SessionPayload`. TTL is set via
+    Redis ``EX`` so Redis itself evicts expired keys — no lazy
+    eviction needed because Redis does it for us.
+
+    Connection lifecycle is owned by the caller: the factory in
+    :mod:`provider.factory` builds the ``redis.asyncio.Redis``
+    instance and the FastAPI lifespan closes it on shutdown.
+    """
+
+    def __init__(
+        self, client: Redis, *, key_prefix: str = "session:", ttl_seconds: int = 3600
+    ) -> None:
+        self._client = client
+        self._prefix = key_prefix
+        self._ttl_seconds = ttl_seconds
+
+    def _key(self, token: str) -> str:
+        return f"{self._prefix}{token}"
+
+    @staticmethod
+    def _serialize(payload: SessionPayload) -> str:
+        # Hand-rolled JSON keeps the dependency surface small — the
+        # alternative (``json.dumps(dataclasses.asdict(payload))``)
+        # works too but adds an import.
+        import json
+
+        return json.dumps(
+            {
+                "user_id": payload.user_id,
+                "role": payload.role,
+                "expires_at": payload.expires_at,
+            },
+            separators=(",", ":"),
+        )
+
+    @staticmethod
+    def _deserialize(raw: str) -> SessionPayload | None:
+        import json
+
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(data, dict):
+            return None
+        user_id = data.get("user_id")
+        role = data.get("role")
+        expires_at = data.get("expires_at")
+        if not isinstance(user_id, str) or not isinstance(role, str):
+            return None
+        if not isinstance(expires_at, (int, float)):
+            return None
+        return SessionPayload(
+            user_id=user_id, role=role, expires_at=float(expires_at)
+        )
+
+    async def set(self, token: str, payload: SessionPayload) -> None:
+        ttl = max(int(payload.expires_at - time.time()), 1)
+        await self._client.set(self._key(token), self._serialize(payload), ex=ttl)
+
+    async def get(self, token: str) -> SessionPayload | None:
+        raw = await self._client.get(self._key(token))
+        if raw is None:
+            return None
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        payload = self._deserialize(raw)
+        if payload is None:
+            return None
+        if payload.expires_at <= time.time():
+            # Belt-and-braces: Redis TTL should already have evicted,
+            # but a manual ``EXPIRE`` race could leave a stale entry.
+            await self._client.delete(self._key(token))
+            return None
+        return payload
+
+    async def revoke(self, token: str) -> None:
+        await self._client.delete(self._key(token))
+
+    async def aclose(self) -> None:
+        """Close the underlying Redis client.
+
+        Caller (factory) passes a dedicated client per store so
+        shutdown is clean.
+        """
+        try:
+            await self._client.aclose()
+        except Exception:  # noqa: BLE001 - shutdown is best-effort
+            return None
